@@ -30,6 +30,7 @@ limitations under the License.
 #include "tensorflow/core/lib/strings/stringprintf.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/equal_graph_def.h"
+#include "tensorflow/python/client/session_ref.h"
 #include "tensorflow/python/lib/core/ndarray_tensor.h"
 #include "tensorflow/python/lib/core/ndarray_tensor_bridge.h"
 #include "tensorflow/python/lib/core/safe_ptr.h"
@@ -41,6 +42,19 @@ namespace {
 static const char* kFeedDictErrorMsg =
     "feed_dict must be a dictionary mapping strings to NumPy arrays.";
 }  // end namespace
+
+TF_Session* TF_NewSessionRef(TF_Graph* graph, const TF_SessionOptions* opts,
+                             TF_Status* status) {
+  TF_Session* tf_session = TF_NewSession(graph, opts, status);
+  if (tf_session == nullptr) {
+    return nullptr;
+  }
+
+  Session* session = reinterpret_cast<Session*>(tf_session->session);
+  SessionRef* session_ref = new SessionRef(session);
+  tf_session->session = session_ref;
+  return tf_session;
+}
 
 void TF_Run_wrapper_helper(TF_DeprecatedSession* session, const char* handle,
                            const TF_Buffer* run_options, PyObject* feed_dict,
@@ -550,6 +564,15 @@ std::vector<TF_Operation*> TF_OperationGetControlInputs_wrapper(
   return control_inputs;
 }
 
+std::vector<TF_Operation*> TF_OperationGetControlOutputs_wrapper(
+    TF_Operation* oper) {
+  std::vector<TF_Operation*> control_outputs(
+      TF_OperationNumControlOutputs(oper));
+  TF_OperationGetControlOutputs(oper, control_outputs.data(),
+                                control_outputs.size());
+  return control_outputs;
+}
+
 std::vector<const char*> TF_OperationOutputConsumers_wrapper(
     TF_Output oper_out) {
   int num_consumers = TF_OperationOutputNumConsumers(oper_out);
@@ -618,15 +641,6 @@ void TF_GraphSetTensorShape_wrapper(TF_Graph* graph, TF_Output output,
     return;
   }
   TF_GraphSetTensorShape(graph, output, dims.data(), dims.size(), status);
-}
-
-std::vector<int64_t> TF_GraphGetTensorShape_wrapper(TF_Graph* graph,
-                                                    TF_Output output,
-                                                    int num_dims,
-                                                    TF_Status* status) {
-  std::vector<int64_t> dims(num_dims);
-  TF_GraphGetTensorShape(graph, output, dims.data(), num_dims, status);
-  return dims;
 }
 
 std::vector<string> TF_ImportGraphDefResultsMissingUnusedInputMappings_wrapper(

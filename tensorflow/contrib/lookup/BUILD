@@ -28,12 +28,13 @@ py_library(
 
 tf_py_test(
     name = "lookup_ops_test",
-    size = "small",
+    size = "medium",
     srcs = ["lookup_ops_test.py"],
     additional_deps = [
         ":lookup_py",
         "//third_party/py/numpy",
         "@six_archive//:six",
+        "//tensorflow/contrib/data",
         "//tensorflow/python:array_ops",
         "//tensorflow/python:client_testlib",
         "//tensorflow/python:errors",
@@ -46,4 +47,5 @@ tf_py_test(
         "//tensorflow/python:variables",
     ],
     grpc_enabled = True,
+    tags = ["no_windows"],  # TODO: needs investigation on Windows
 )
